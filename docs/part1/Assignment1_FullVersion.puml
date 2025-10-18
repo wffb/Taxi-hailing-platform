@@ -1,0 +1,179 @@
+@startuml
+' Relationship between user and wallet
+User "1" -- "1" Wallet : owns >
+
+' Relationship between user and ride history
+User "1" -- "1" RideHistory : has >
+User "1" -- "1" PaymentHistory : has >
+
+' Relationship between driver and availability schedule
+Driver "1" -- "0..*" Schedule : has availability >
+
+' Relationship between rider and ride
+Rider "1" -- "0..*" Ride : requests >
+
+' Relationship between driver and ride
+Driver "0..1" -- "0..*" Ride : accepts >
+
+' Ride history contains 0 or more ride records
+Ride "0..*" --- "1" RideHistory : consists of <
+
+' Payment history contains 0 or more payment records
+Payment "0..*" --- "1" PaymentHistory : consists of <
+
+' A payment record is generated after each ride ends
+Ride "1" --- "1" Payment : generate >
+
+' Relationship between payment and wallet
+Payment "1" -- "1" Wallet : amount deducted from (rider) >
+Payment "1" -- "1" Wallet : amount be credited to(driver) >
+
+' Inheritance relationship
+User <|-- Rider
+User <|-- Driver
+
+' User base class
+class User {
+  id
+  name
+  email
+  password
+  role
+  ' User registration
+  register()
+  ' User login
+  login()
+  ' User logout
+  logout()
+}
+
+' Rider class
+class Rider {
+  ' Request a ride
+  requestRide(pickUpLocation, destination)
+  ' Cancel a ride
+  cancelRide(rideId)
+  ' View wallet balance
+  viewWalletBalance()
+  ' Top up wallet
+  topUpWallet(amount)
+  ' View ride history
+  viewRideHistory()
+}
+
+' Driver class
+class Driver {
+  ' View available rides
+  viewAvailableRides()
+  ' Begin a ride
+  beginRide(rideId)
+  ' Complete a ride
+  completeRide(rideId)
+  ' Configure availability schedule
+  configureSchedule()
+  ' View wallet balance
+  viewWalletBalance()
+  ' View ride history
+  viewRideHistory()
+}
+
+' Wallet class
+class Wallet {
+  id
+  balance
+  ' Top up
+  topUp(amount)
+  ' Deduct amount
+  deduct(amount)
+  ' Get balance
+  getBalance()
+  ' Check if sufficient funds are available
+  hasSufficientFunds(amount)
+}
+
+' Driver availability schedule
+class Schedule {
+  id
+  dayOfWeek
+  startTime
+  endTime
+  ' Check if the current time is within available time
+  isAvailable(currentTime)
+  ' Set availability
+  setAvailability(day, start, end)
+}
+
+' Ride class
+class Ride {
+  ' Ride identifier
+  id
+  ' The following four attributes can be viewed by the user
+  pickUpLocation
+  destination
+  fareEstimate
+  requestedTime
+  ' Ride status
+  RideStatus
+  ' Rider name and driver name
+  riderName
+  driverName
+  ' Calculate fare
+  calculateFare()
+  ' I placed the driver's ride order operations inside the ride class so that the driver class does not need to know the ride class's internal logic
+  ' Driver accepts ride
+  acceptRide()
+  ' Driver cancels ride
+  cancelRide()
+  ' Update ride status
+  updateStatus(newStatus)
+  ' Validate if status transition is valid
+  isValidTransition(currentStatus, newStatus)
+}
+
+' Ride history
+class RideHistory{
+    ' Stores multiple ride records
+    rides
+    ' Add a ride record
+    addRide(ride)
+    ' Get all ride records
+    getAllRide()
+    ' Find ride by ID
+    findRideById(id)
+    ' Attributes visible to both driver and rider:
+    ' pickUpLocation
+    ' destination
+    ' RideStatus
+    ' fare (available depending on ride status)
+    ' paymentTime (available depending on ride status)
+    ' Attributes visible to driver only:
+    ' riderName
+    ' Attributes visible to rider only:
+    ' driverName (available depending on ride status)
+}
+
+' Requirement 7. Complete Ride: A payment record is generated after the ride ends
+class Payment{
+    id
+    ' Total amount
+    amount
+    ' Ride reference, i.e., the ride ID
+    rideReference
+    ' Payment time
+    time
+    ' Process payment
+    processPayment()
+}
+
+' Payment history
+class PaymentHistory{
+    ' Stores multiple payment records
+    payments
+    ' Add a payment record
+    addPayment(payment)
+    ' Get all payment records
+    getAllPayment()
+    ' Find payment by ride reference
+    findPaymentByRideReference(rideReference)
+}
+@enduml

@@ -1,0 +1,42 @@
+{
+
+  "filters": [
+    { "name": "testFilter", "class": "filter.TestFilter", "order": 0 },
+    { "name": "usernamePasswordAuthFilter", "class": "filter.UsernamePasswordAuthFilter", "order": 1 },
+    { "name": "tokenAuthFilter", "class": "filter.TokenAuthFilter", "order": 2 },
+    { "name": "driverAuthFilter", "class": "filter.DriverAuthFilter", "order": 3 },
+    { "name": "riderAuthFilter", "class": "filter.RiderAuthFilter", "order": 3 }
+  ],
+
+  "filterChains": {
+    "defaultChain": [
+      "usernamePasswordAuthFilter",
+      "tokenAuthFilter"
+    ],
+    "noAuthChain": [
+    ],
+    "driverAuthChain": [
+      "usernamePasswordAuthFilter",
+      "tokenAuthFilter",
+      "driverAuthFilter"
+    ],
+    "riderAuthChain": [
+      "usernamePasswordAuthFilter",
+      "tokenAuthFilter",
+      "riderAuthFilter"
+    ]
+  },
+
+  "paths": {
+    "/*": "defaultChain",
+    "/user/register": "noAuthChain",
+
+    "/schedules/getAll": "driverAuthChain",
+    "/schedules/update": "driverAuthChain",
+    "/ride/getAllRides": "driverAuthChain",
+    "/ride/accept": "driverAuthChain",
+
+    "/ride/requestRide": "riderAuthChain"
+
+  }
+}
