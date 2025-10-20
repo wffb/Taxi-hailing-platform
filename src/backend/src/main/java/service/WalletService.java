@@ -6,6 +6,7 @@ import DTO.WalletDTO;
 import common.util.CacheUtil;
 import model.LoginUser;
 import model.Payment;
+import model.Ride;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -93,7 +94,7 @@ public class WalletService {
                 e.printStackTrace();
                 System.out.println("fail to get riderID by userID");
             }
-            records = paymentDAO.getByDriverID(userID);
+            records = paymentDAO.getByDriverID(driverID);
         }
 
 
@@ -129,6 +130,10 @@ public class WalletService {
             return false;
         }
 
+        //onl charge rider wallet
+        if(riderID == -1)
+            return false;
+
         boolean success = userDAO.chargeWallet(userID, amount);
         boolean success2 = paymentDAO.createPaymentForTopUp(riderID, amount);
 
@@ -138,7 +143,27 @@ public class WalletService {
         return (success2 & success);
     }
 
+
+
+
     //transfer wallet
+    public boolean transferWallet(Ride ride){
+
+        int fromID, toID;
+        try {
+             fromID = RiderDAO.getInstance().getRiderById(ride.getRider_id()).getUser_id();
+             toID = DriverDAO.getInstance().getUserIdByDriverId(ride.getDriver_id());
+
+        } catch (SQLException e) {
+            System.out.println("fail to get user ID");
+            return false;
+        }
+
+        if(fromID == -1 || toID == -1) return false;
+
+        return  transferWallet(fromID, toID, BigDecimal.valueOf(ride.getActual_fare()));
+    }
+
     public boolean transferWallet(int fromID, int toID, BigDecimal amount)  {
 
         if(fromID == toID){
@@ -162,6 +187,11 @@ public class WalletService {
         } catch (SQLException e){
             e.printStackTrace();
             System.out.println("fail to get driverID by userID");
+            return false;
+        }
+
+        if(riderID == -1 || driverID == -1){
+            System.out.println("invalid ID when transfer wallet:"+fromID+" "+toID);
             return false;
         }
 

@@ -86,6 +86,7 @@ public class RequestRideServlet extends HttpServlet {
         Ride createdRide;
         try {
             createdRide = RideService.getInstance().requestRide(riderId, pickup_location, destination);
+
         } catch (SQLException e) {
             CommonResult<Object> errorResult =
                     CommonResult.failed("Failed to request ride: " + e.getMessage());

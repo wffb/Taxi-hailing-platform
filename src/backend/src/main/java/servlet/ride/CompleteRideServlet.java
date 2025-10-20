@@ -3,11 +3,13 @@ package servlet.ride;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import common.api.CommonResult;
+import common.helper.ResponseHelper;
 import common.util.CacheUtil;
 import common.util.JwtUtil;
 import model.LoginUser;
 import model.Ride;
 import service.RideService;
+import service.WalletService;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -16,11 +18,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.format.DateTimeFormatter;
 import java.util.stream.Collectors;
 
 // complete ride servlet
-@WebServlet("/ride/complete")
+
 public class CompleteRideServlet extends HttpServlet {
 
     @Override
@@ -31,7 +35,7 @@ public class CompleteRideServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         try {
-            // Get token and driver ID (修复)
+            // Get token and driver ID
             String token = req.getHeader("token");
             String userid = JwtUtil.getInstance().getUserIDFromToken(token);
             if (userid == null || userid.isEmpty()) {
@@ -47,6 +51,8 @@ public class CompleteRideServlet extends HttpServlet {
             }
             int driverId = Integer.parseInt(driver.getRoleID());
 
+            System.out.println("Completing ride by driver " + driverId);
+
             // Read JSON request body
             BufferedReader reader = req.getReader();
             String jsonBody = reader.lines().collect(Collectors.joining());
@@ -54,10 +60,26 @@ public class CompleteRideServlet extends HttpServlet {
 
             int rideId = jsonObject.getIntValue("ride_id");
 
+            //judge if the driver is the owner of the ride
+            if (driverId != RideService.getInstance().getRideById(rideId).getDriver_id()) {
+
+                //System.out.println("Finished ride " + rideId + " by Driver " + driverId + " is not the owner of ride " + rideId);
+
+                ResponseHelper.sendErrorMessage(
+                        resp, "Only the owner driver can complete the ride"
+                );
+                return;
+            }
+
+            System.out.println("Completing ride " + rideId + " by driver " + driverId);
+
             // Update ride state
             boolean success = RideService.getInstance().updateRideState(rideId, 0, "COMPLETED");
 
             if (success) {
+
+                System.out.println("Ride " + rideId + " completed by driver " + driverId);
+
                 Ride ride = RideService.getInstance().getRideById(rideId);
 
                 if (ride == null) {
@@ -67,11 +89,18 @@ public class CompleteRideServlet extends HttpServlet {
                     return;
                 }
 
+                //transfer
+                WalletService.getInstance().transferWallet(ride);
+
                 JSONObject rideData = convertRideToJson(ride);
                 resp.getWriter().write(JSON.toJSONString(
                         CommonResult.success("ride completed successfully", rideData)
                 ));
+
             } else {
+
+                System.out.println("Failed to complete ride " + rideId + " by driver " + driverId);
+
                 resp.getWriter().write(JSON.toJSONString(
                         CommonResult.failed("failed to complete ride")
                 ));

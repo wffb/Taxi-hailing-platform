@@ -31,10 +31,12 @@ public class RideDAO {
     }
 
     // 1. Add a new ride
-    public boolean addRide(Ride ride) throws SQLException {
+    public int addRide(Ride ride) throws SQLException {
+
         String sql = "INSERT INTO ride (driver_id, rider_id, pickup_location, destination, " +
                 "estimate_fare, actual_fare, ride_state, required_time, start_time) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ride_id";
+
         try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -50,7 +52,23 @@ public class RideDAO {
             stmt.setTimestamp(9, ride.getStart_time() != null ?
                     Timestamp.valueOf(ride.getStart_time()) : null);
 
-            return stmt.executeUpdate() > 0;
+
+
+            // get the generated ID from the database
+            try (ResultSet generatedKeys = stmt.executeQuery()) {
+                if (generatedKeys.next()) {
+                    int id = generatedKeys.getInt("ride_id");
+                    System.out.println("New Ride ID: " + id);
+                    return id;
+                } else {
+                    System.err.println("No ID obtained from the database.");
+                    return 0;
+                }
+            }
+
+        }catch (Exception e) {
+            System.out.println(e.getMessage());
+            return 0;
         }
     }
 

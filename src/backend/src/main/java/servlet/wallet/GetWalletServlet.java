@@ -92,6 +92,10 @@ public class GetWalletServlet extends HttpServlet {
         RiderDAO riderDAO = RiderDAO.getInstance();
         DriverDAO driverDAO = DriverDAO.getInstance();
 
+        // use cache to avoid multiple db transactions
+        Map<Integer, String> riderNameCache = new HashMap<>();
+        Map<Integer, String> driverNameCache = new HashMap<>();
+
         for (Payment payment : walletDTO.getRecords()) {
             Map<String, Object> paymentRecord = new HashMap<>();
 
@@ -100,35 +104,45 @@ public class GetWalletServlet extends HttpServlet {
             // Get rider name
             String riderName = "";
             if (payment.getRider_id() > 0) {
-                try {
-                    int riderID = payment.getRider_id();
-                    int userID = riderDAO.getRiderById(riderID).getUser_id();
-                    User rider = userDAO.getUserById(userID);
-                    if (rider != null) {
-                        riderName = rider.getUser_name();
+                int riderID = payment.getRider_id();
+
+                if (riderNameCache.containsKey(riderID)) {
+                    riderName = riderNameCache.get(riderID);
+                } else {
+                    try {
+                        int userID = riderDAO.getRiderById(riderID).getUser_id();
+                        User rider = userDAO.getUserById(userID);
+                        if (rider != null) {
+                            riderName = rider.getUser_name();
+                            riderNameCache.put(riderID, riderName);
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
                     }
-                } catch (SQLException e) {
-                    // If failed to get rider name, leave it empty
-                    e.printStackTrace();
                 }
             }
             paymentRecord.put("rider_name", riderName);
 
-            // Get driver name (empty if driver_id = 0, indicating top-up)
+            // Get driver name
             String driverName = "";
             if (payment.getDriver_id() > 0) {
-                try {
-                    int driverID = payment.getDriver_id();
-                    int userID = driverDAO.getUserIdByDriverId(driverID);
-                    if (userID == -1)
-                        System.out.println("driver ID does not exist");
-                    User driver = userDAO.getUserById(userID);
-                    if (driver != null) {
-                        driverName = driver.getUser_name();
+                int driverID = payment.getDriver_id();
+
+                if (driverNameCache.containsKey(driverID)) {
+                    driverName = driverNameCache.get(driverID);
+                } else {
+                    try {
+                        int userID = driverDAO.getUserIdByDriverId(driverID);
+                        if (userID == -1)
+                            System.out.println("driver ID does not exist");
+                        User driver = userDAO.getUserById(userID);
+                        if (driver != null) {
+                            driverName = driver.getUser_name();
+                            driverNameCache.put(driverID, driverName);
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
                     }
-                } catch (SQLException e) {
-                    // If failed to get driver name, leave it empty
-                    e.printStackTrace();
                 }
             }
             paymentRecord.put("driver_name", driverName);
@@ -139,6 +153,7 @@ public class GetWalletServlet extends HttpServlet {
 
             paymentList.add(paymentRecord);
         }
+
 
         // Build response data
         Map<String, Object> responseData = new HashMap<>();

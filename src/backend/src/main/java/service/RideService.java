@@ -11,6 +11,7 @@ import model.User;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -128,6 +129,7 @@ public class RideService {
      * @throws SQLException if database operation fails
      */
     public boolean acceptRide(int rideId, int driverId) throws SQLException {
+
         // Check if ride exists and is in REQUESTED state
         Ride ride = rideDAO.getRideById(rideId);
         if (ride == null || !"REQUESTED".equals(ride.getRide_state())) {
@@ -136,6 +138,7 @@ public class RideService {
 
         // Check if driver is available at start time
         if (!isDriverAvailable(driverId, ride.getStart_time())) {
+            System.out.println(ride.getStart_time());
             return false;
         }
 
@@ -152,11 +155,6 @@ public class RideService {
      * @throws SQLException if database operation fails
      */
     public Ride requestRide(int riderId, String pickupLocation, String destination) throws SQLException {
-        // Validate location parameters
-        List<String> validLocations = Arrays.asList("2000", "3000", "3045", "3800");
-        if (!validLocations.contains(pickupLocation) || !validLocations.contains(destination)) {
-            return null;
-        }
 
         // Validate pickup and destination are different
         if (pickupLocation.equals(destination)) {
@@ -178,8 +176,9 @@ public class RideService {
         // Calculate required time (estimated based on distance)
         Duration requiredTime = calculateRequiredTime(pickupLocation, destination);
 
-        // Set start time to current time
-        LocalDateTime startTime = LocalDateTime.now();
+        // Set start time to current time in Melbourne
+        LocalDateTime startTime = LocalDateTime.now(ZoneId.of("Australia/Melbourne"));
+
 
         // Create new ride object
         Ride newRide = new Ride();
@@ -194,17 +193,11 @@ public class RideService {
         newRide.setStart_time(startTime);
 
         // Add ride to database
-        boolean success = rideDAO.addRide(newRide);
-        if (success) {
-            // Get the created ride with generated ID
-            List<Ride> rides = rideDAO.getRidesByRiderId(riderId);
-            // Return the most recently created ride for this rider
-            return rides.stream()
-                    .filter(r -> "REQUESTED".equals(r.getRide_state())
-                            && pickupLocation.equals(r.getPickup_location())
-                            && destination.equals(r.getDestination()))
-                    .findFirst()
-                    .orElse(null);
+        int res = rideDAO.addRide(newRide);
+
+        if(res != 0){
+            newRide.setRide_id(res);
+            return newRide;
         }
 
         return null;
@@ -218,33 +211,51 @@ public class RideService {
      * @throws SQLException if database operation fails
      */
     private boolean isDriverAvailable(int driverId, LocalDateTime rideStartTime) throws SQLException {
-        // Get driver's schedule
+        // Get the driver's weekly schedule (should have 7 entries, one per day)
         List<String> schedules = driverDAO.getDriverSchedulesByDriverID(driverId);
-        if (schedules.isEmpty()) {
-            return false; // No schedule found, driver not available
-        }
-
-        // Get time information from ride start time
-        int dayOfWeek = rideStartTime.getDayOfWeek().getValue();
-        int timeSlot = getCurrentTimeSlot(rideStartTime);
-
-        // Get today's schedule (Monday=0, Sunday=6 in our array)
-        int scheduleIndex = (dayOfWeek == 7) ? 0 : dayOfWeek; // Convert Sunday(7) to 0
-        scheduleIndex = scheduleIndex - 1; // Convert to 0-based index (Monday=0)
-
-        if (scheduleIndex < 0 || scheduleIndex >= schedules.size()) {
+        if (schedules == null || schedules.size() != 7) {
+            System.out.println("Schedules are null or do not contain 7 days.");
             return false;
         }
 
-        String todaySchedule = schedules.get(scheduleIndex);
-        if (todaySchedule == null || todaySchedule.length() != 48) {
-            return false; // Invalid schedule format
+        // Get the day of the week (1 = Monday, 7 = Sunday)
+        int dayOfWeek = rideStartTime.getDayOfWeek().getValue();
+        int scheduleIndex = dayOfWeek - 1; // Convert to 0-based index (Monday=0, Sunday=6)
+
+        // Safety check for index range
+        if (scheduleIndex < 0 || scheduleIndex >= schedules.size()) {
+            System.out.println("Invalid scheduleIndex: " + scheduleIndex);
+            return false;
         }
 
-        // Check if time slot is available (1 = available, 0 = not available)
+        // Determine which time slot (0–47) this ride start time falls into
+        int timeSlot = getCurrentTimeSlot(rideStartTime);
+        if (timeSlot < 0 || timeSlot >= 48) {
+            System.out.println("Invalid timeSlot: " + timeSlot);
+            return false;
+        }
+
+        // Retrieve today's schedule string
+        String todaySchedule = schedules.get(scheduleIndex);
+        if (todaySchedule == null || todaySchedule.length() != 48) {
+            System.out.println("Invalid schedule format: " +
+                    (todaySchedule == null ? "null" : todaySchedule.length()));
+            return false;
+        }
+
+        // Each character represents a 30-minute slot: '1' = available, '0' = not available
         char availability = todaySchedule.charAt(timeSlot);
+
+        // Debug log
+        System.out.println("Driver ID: " + driverId +
+                ", Day index: " + scheduleIndex +
+                ", Slot: " + timeSlot +
+                ", Availability: " + availability);
+
+        // Return true if available
         return availability == '1';
     }
+
 
     /**
      * Get time slot (0-47) based on specified time
@@ -314,6 +325,7 @@ public class RideService {
         double balance = userDAO.getUserById(userId).getWallet_balance().doubleValue();
         return balance >= estimateFare;
     }
+
 
     /**
      * Validate whether a state transition is allowed.

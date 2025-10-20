@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 import java.time.format.DateTimeFormatter;
 
-@WebServlet("/ride/start")
+
 public class StartRideServlet extends HttpServlet {
 
     @Override

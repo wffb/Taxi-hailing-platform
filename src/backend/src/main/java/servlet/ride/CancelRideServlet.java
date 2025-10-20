@@ -20,7 +20,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.stream.Collectors;
 
 // cancel ride servlet
-@WebServlet("/ride/cancel")
 public class CancelRideServlet extends HttpServlet {
 
     @Override

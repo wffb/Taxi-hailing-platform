@@ -56,7 +56,6 @@ public class RegisterServlet extends HttpServlet {
 
             User user = new User();
             user.setUser_name(name);
-            //TODO: encrypt password
             user.setPassword(PasswordEncryptHelper.encryptPassword(password));
             //TODO: validate email format
             user.setEmail(email);
